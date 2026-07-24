@@ -142,7 +142,7 @@ async def touch_dev_portal(cookies: list) -> None:
             print(f"[DEV][INFO] wake_up -> {resp.status}")
 
         print("[DEV][INFO] Calling touch-session...")
-        async with session.get(
+        async with session.post(
             f"{DEV_BASE}/api/now/uisession/touch-session",
             headers=dev_headers,
         ) as resp:
