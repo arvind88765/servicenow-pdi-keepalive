@@ -2,8 +2,8 @@ name: PDI Keep-Alive
 
 on:
   schedule:
-    - cron: "0 6 * * *"   # daily at 6am UTC
-  workflow_dispatch: {}   # manual trigger from Actions tab
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
 
 jobs:
   ping:
@@ -31,10 +31,18 @@ jobs:
           DEV_PASS: ${{ secrets.DEV_PASS }}
         run: python main.py
 
-      - name: Upload proof screenshots (Method 1)
+      - name: Upload Method 1 proof screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: keepalive-proof-${{ github.run_number }}
+          name: proof-method1-pdi-${{ github.run_number }}
           path: proof/*.png
+          retention-days: 3
+
+      - name: Upload Method 2 proof screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-method2-devportal-${{ github.run_number }}
+          path: proof_dev/*.png
           retention-days: 3
