@@ -84,14 +84,6 @@ def browser_login() -> list:
         shot(page, "3_after_submit.png")
 
         current_url = page.url.lower()
-        content = page.content().lower()
-
-        if "invalid" in content or "incorrect" in content or (
-            "signon" in current_url and "password" in content
-        ):
-            shot(page, "fail_wrong_creds.png")
-            browser.close()
-            fail("Login failed — check DEV_USER and DEV_PASS.")
 
         if "developer.servicenow.com" not in current_url:
             shot(page, "fail_unexpected_page.png")
