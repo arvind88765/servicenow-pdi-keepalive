@@ -2,12 +2,8 @@ name: PDI Keep-Alive
 
 on:
   schedule:
-    # TESTING MODE: runs every 10 minutes so you can confirm the schedule
-    # trigger actually works before trusting it long term. Switch back to
-    # the daily cron below once you've seen a few runs fire on their own.
-    
-     - cron: "0 6 * * *"   # <-- daily version, uncomment and remove the line above once confirmed
-  workflow_dispatch: {}   # lets you trigger it manually from the Actions tab
+    - cron: "0 6 * * *"   # daily at 6am UTC
+  workflow_dispatch: {}   # manual trigger from Actions tab
 
 jobs:
   ping:
@@ -26,14 +22,16 @@ jobs:
           pip install -r requirements.txt
           playwright install --with-deps chromium
 
-      - name: Run keep-alive script
+      - name: Run keep-alive (both methods)
         env:
           PDI_URL: ${{ secrets.PDI_URL }}
           PDI_USER: ${{ secrets.PDI_USER }}
           PDI_PASS: ${{ secrets.PDI_PASS }}
-        run: python keepalive.py
+          DEV_USER: ${{ secrets.DEV_USER }}
+          DEV_PASS: ${{ secrets.DEV_PASS }}
+        run: python main.py
 
-      - name: Upload proof screenshots
+      - name: Upload proof screenshots (Method 1)
         if: always()
         uses: actions/upload-artifact@v4
         with:
