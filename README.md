@@ -1,122 +1,126 @@
 # 🔋 PDI Keep-Alive
 
-Never let your ServiceNow PDI hibernate again. Fork it, add your secrets, done. Fully automated, zero maintenance, zero cost.
+your PDI will never hibernate again. fork it, drop in your secrets, and forget about it. free, automated, no server needed.
 
 ## the problem
 
-Free tier PDIs sleep after a few days of no activity, and waking one back up can take forever. This repo keeps your PDI alive using **two independent methods** running concurrently every day via GitHub Actions — so even if one fails, the other has you covered.
+free tier PDIs go to sleep after a few days of no activity. waking them back up takes forever and kills your flow. this repo fixes that by running two keepalive methods every single day on GitHub Actions so your instance stays alive no matter what.
 
-## two methods, one run
+## two methods, both run at the same time
+
+**Method 1** logs straight into your PDI via a headless browser and resets the activity timer on the instance itself.
+
+**Method 2** logs into developer.servicenow.com (the dev portal, not the PDI directly) using the same Okta SSO flow your browser uses, then calls the portal's wakeup APIs to keep things alive from the ServiceNow side too.
+
+both run concurrently in one workflow run. if one fails, the other still saves you. you can use either one or both depending on what secrets you set.
 
 | | Method 1 | Method 2 |
 |---|---|---|
-| **What it does** | Logs into your PDI directly via headless browser | Logs into developer.servicenow.com via async HTTP (no browser) |
-| **How** | Playwright + Chromium | aiohttp + Okta IDX API |
-| **Speed** | ~30s (browser startup) | ~3-5s (pure HTTP) |
-| **Secrets needed** | `PDI_URL` `PDI_USER` `PDI_PASS` | `DEV_USER` `DEV_PASS` |
-| **Proof** | 5 screenshots saved as artifacts | Console logs |
+| logs into | your PDI directly | developer.servicenow.com |
+| how | Playwright headless browser | aiohttp async HTTP (no browser) |
+| speed | ~30s | ~5s |
+| proof | 5 screenshots | 3 screenshots |
+| secrets needed | PDI_URL, PDI_USER, PDI_PASS | DEV_USER, DEV_PASS |
 
-Both methods run **at the same time** in a single workflow run. You can use either one or both — if you only set one set of secrets, only that method runs.
+## setup (literally 5 min)
 
-## how it works
+**1. fork this repo** (top right, hit Fork)
 
-**Method 1 — PDI browser login:**
-Opens your PDI URL in a headless Chromium browser, fills in username/password, clicks login. Resets the PDI's activity timer directly. Takes 5 screenshots as proof.
+**2. add your secrets** — go to Settings > Secrets and variables > Actions > New repository secret in your fork
 
-**Method 2 — Dev portal HTTP login:**
-Logs into `developer.servicenow.com` using the Okta IDX REST API (the same flow your browser does, but without a browser). After login, calls `check_instance_awake` and `touch-session` on the dev portal to reset the activity timer from the ServiceNow developer side.
+if you want both methods (recommended):
 
-Having both means: if your PDI URL changes, or the browser login breaks, Method 2 still keeps the instance alive from the developer portal side — and vice versa.
+| Secret | What to put |
+|---|---|
+| PDI_URL | your PDI url like `https://dev12345.service-now.com` |
+| PDI_USER | your PDI username |
+| PDI_PASS | your PDI password |
+| DEV_USER | your developer.servicenow.com email (the account you used to register for a PDI) |
+| DEV_PASS | your developer.servicenow.com password |
 
-## setup
+if you only want Method 1, just add PDI_URL + PDI_USER + PDI_PASS.
 
-### if you want BOTH methods (recommended)
+if you only want Method 2, just add DEV_USER + DEV_PASS. Playwright wont even install, faster run.
 
-1. **Fork this repo.**
+**3.** go to your fork's **Actions** tab and enable workflows if it asks
 
-2. Go to **Settings > Secrets and variables > Actions** in your fork and add these 5 secrets:
+**4.** click **Run workflow** on "PDI Keep-Alive" to test it right now instead of waiting for tomorrow
 
-   | Secret | Value |
-   |---|---|
-   | `PDI_URL` | your PDI URL, like `https://dev12345.service-now.com` |
-   | `PDI_USER` | your PDI username |
-   | `PDI_PASS` | your PDI password |
-   | `DEV_USER` | your developer.servicenow.com email (same account you use to log into the dev portal) |
-   | `DEV_PASS` | your developer.servicenow.com password |
+done. it runs itself every day at 6am UTC forever.
 
-3. Go to your fork's **Actions** tab, enable workflows if it asks.
+## checking if it worked
 
-4. Click **Run workflow** on "PDI Keep-Alive" to test it right now.
+every run saves screenshots showing exactly what happened.
 
-### if you only want Method 1 (PDI browser login)
+**Method 1 screenshots (proof folder):**
+- `1_initial_page.png` what it saw when it first opened your PDI
+- `2_after_wake_attempt.png` after trying to wake it if it was hibernating
+- `3_form_filled.png` login form right before hitting submit
+- `4_after_submit.png` right after clicking login
+- `5_final_landed_page.png` the actual logged in page, this is your proof
 
-Only add `PDI_URL`, `PDI_USER`, `PDI_PASS`. Method 2 is automatically skipped.
+**Method 2 screenshots (proof_dev folder):**
+- `1_dev_portal_home.png` dev portal right after session cookies were injected
+- `2_dev_portal_loaded.png` after page fully loaded
+- `3_dev_portal_final.png` final state confirming login worked
 
-### if you only want Method 2 (dev portal HTTP login)
+to find them: go to your fork's Actions tab > click the latest run > scroll down to Artifacts > download the zip.
 
-Only add `DEV_USER`, `DEV_PASS`. Method 1 is automatically skipped (no Playwright needed).
+if something went wrong youll see a `_failed.png` instead of the final one. open it to see what happened.
 
-## how to check it actually worked
+screenshots auto delete after 3 days. download the zip if you want to keep them.
 
-Every run saves 5 screenshots from Method 1. Here's how to find them:
+also check the logs inside the run. expand "Run keep-alive (both methods)" and look for:
+```
+[Method 1 PDI]        SUCCESS
+[Method 2 Dev Portal] SUCCESS
+```
 
-1. Go to your fork's [**latest workflow runs**](../../actions/workflows/keepalive.yml)
-2. Click into the latest run
-3. Scroll down to **Artifacts** at the bottom
-4. Download **keepalive-proof-X** (zip), unzip it:
-   - `1_initial_page.png` — what it saw when it opened your PDI
-   - `2_after_wake_attempt.png` — after trying to wake it up if it was hibernating
-   - `3_form_filled.png` — login form right before submit
-   - `4_after_submit.png` — right after clicking login
-   - `5_final_landed_page.png` — the logged-in page (proof it worked)
-
-Also check the logs: expand "Run keep-alive (both methods)" and look for:
-- `[Method 1 PDI]      SUCCESS`
-- `[Method 2 Dev Portal] SUCCESS`
-
-Artifacts auto-delete after 3 days.
-
-## run locally
+## run it locally
 
 ```bash
-cp .env.example .env   # fill in your real values
+cp .env.example .env
+# fill in .env with your real values
+
 pip install -r requirements.txt
 playwright install chromium
 
-# run both methods
+# run both at once
 export $(cat .env | xargs) && python main.py
 
-# or run Method 2 only (no browser needed)
+# only Method 2 (fast, no browser)
 export DEV_USER=you@email.com DEV_PASS=yourpass && python keepalive_dev.py
 
-# or run Method 1 only
+# only Method 1
 export PDI_URL=https://devXXXX.service-now.com PDI_USER=admin PDI_PASS=pass && python keepalive.py
 ```
 
-## heads up
+## things worth knowing
 
-- MFA on your PDI? Method 1 won't work — disable MFA on the dev instance. Method 2 (dev portal) also won't work if MFA is enabled on your ServiceNow developer account.
-- `DEV_USER`/`DEV_PASS` are the credentials for `developer.servicenow.com`, not your PDI instance — they're usually your personal ServiceNow account (the one you used to register for a PDI).
-- Want it to run more/less often? Edit the `cron` line in `.github/workflows/keepalive.yml`.
-- This just automates normal logins — nothing sketchy, no bypassing anything.
-- Pro tip: don't use your main admin creds if you can avoid it, create a low-priv user just for keepalive.
+MFA enabled on your PDI? Method 1 wont work, you need to disable MFA on the dev instance for browser login to work. same goes for Method 2 if MFA is on your developer.servicenow.com account.
 
-## why other keep-alive scripts break
+DEV_USER and DEV_PASS are your developer.servicenow.com credentials, not your PDI credentials. its the account you used when you signed up for a free PDI at developer.servicenow.com.
 
-Most PDI keep-alive scripts do a raw `requests.post()` straight to `/login.do` with guessed selectors and no CSRF token. That fails silently because ServiceNow's login form needs a `sysparm_ck` token first, and guessed field names break the moment ServiceNow updates their page.
+want it to run more or less often? edit the cron line in `.github/workflows/keepalive.yml`.
 
-This repo is different:
-- **Method 1** uses a real browser — actual login flow, verified against a real PDI, takes screenshots so you can see exactly what happened
-- **Method 2** uses the real Okta IDX REST API that the browser itself uses — extracted from actual network traffic, not guessed
-- Both fail loudly with a non-zero exit code — GitHub Actions marks the run as failed so you get notified
-- Your credentials live in your own fork's encrypted secrets — nobody else ever sees them
+pro tip: spin up a dedicated low-priv login just for this instead of using your main admin account.
+
+## why most other keepalive scripts dont work
+
+most scripts out there just do a raw POST to `/login.do` with hardcoded field names and no CSRF token. ServiceNow requires a `sysparm_ck` token embedded in the page before it accepts a login POST, so those scripts fail silently half the time and you dont find out until your PDI is already dead.
+
+this repo actually uses the real login flows:
+- Method 1 uses a real headless browser so the full page lifecycle runs exactly like a human would do it
+- Method 2 uses the actual Okta IDX REST API that developer.servicenow.com uses internally, not guessed selectors
+- both fail loudly with a non-zero exit code so GitHub marks the run red and you get notified
+- your creds live in your own fork's encrypted secrets and never touch anyone else's server
 
 ## credits
 
-Built out of frustration with losing PDIs mid-project. If it saved you a headache, a ⭐ means a lot and helps other devs find it.
+built this because I kept losing PDIs mid-project and it was genuinely annoying. if it saved you from a hibernation headache, a star on the repo would be sick and helps other devs find it.
 
-PRs welcome — this is meant to be a community tool.
+PRs welcome, this is meant to be a community thing not a solo project.
 
 ## disclaimer
 
-This is a personal educational project that automates the same login you'd do by hand in a browser. Nothing here bypasses security or does anything ServiceNow wouldn't want a legitimate developer doing. Use responsibly, don't spam it, and only use it on instances that are yours.
+this just automates a normal login, the same one you do by hand in a browser. nothing here bypasses any security or does anything ServiceNow wouldnt want a legit developer doing. use it on your own instances only, dont spam it.
