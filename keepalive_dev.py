@@ -8,7 +8,8 @@ from playwright.sync_api import sync_playwright
 DEV_USER = os.environ.get("DEV_USER", "")
 DEV_PASS = os.environ.get("DEV_PASS", "")
 
-SIGNON_URL = "https://signon.servicenow.com/x_snc_sso_auth.do?pageId=login&redirectUri=https%3A%2F%2Fdeveloper.servicenow.com%2Fdev.do"
+# userlogin.do triggers the full SSO redirect chain through Okta
+SIGNON_URL = "https://developer.servicenow.com/userlogin.do?relayState=https%3A%2F%2Fdeveloper.servicenow.com%2Fdev.do"
 DEV_BASE = "https://developer.servicenow.com"
 
 PROOF_DIR = "proof_dev"
@@ -42,56 +43,22 @@ def browser_login() -> list:
             pass
         shot(page, "1_login_page.png")
 
-        # wait for the Okta JS to render the username field
-        print("[DEV][INFO] Waiting for username field...")
+        # wait for the Okta Sign-In Widget to render (classic widget — both fields on one page)
+        print("[DEV][INFO] Waiting for login form...")
         try:
-            page.wait_for_selector(
-                "input[name='identifier'], #username, input[type='email'], input[autocomplete='username']",
-                timeout=WAKE_TIMEOUT_S * 1000,
-            )
+            page.wait_for_selector("#okta-signin-username", timeout=WAKE_TIMEOUT_S * 1000)
         except Exception:
-            shot(page, "fail_no_username_field.png")
+            shot(page, "fail_no_login_form.png")
             browser.close()
-            fail(f"Username field never appeared. URL: {page.url}")
+            fail(f"Okta login form never appeared. URL: {page.url}")
 
-        # fill username
-        username_sel = page.locator(
-            "input[name='identifier'], #username, input[type='email'], input[autocomplete='username']"
-        ).first
-        username_sel.fill(DEV_USER)
-        print(f"[DEV][INFO] Filled username.")
-
-        # click Next/Continue to advance to password screen
-        print("[DEV][INFO] Clicking Next...")
-        next_btn = page.locator(
-            "input[type='submit'], button[type='submit'], [data-se='o-form-input-submit']"
-        ).first
-        next_btn.click()
-
-        # wait for password field to appear
-        print("[DEV][INFO] Waiting for password field...")
-        try:
-            page.wait_for_selector(
-                "input[name='credentials.passcode'], input[type='password'], #password",
-                timeout=30000,
-            )
-        except Exception:
-            shot(page, "fail_no_password_field.png")
-            browser.close()
-            fail(f"Password field never appeared after clicking Next. URL: {page.url}")
-
-        password_sel = page.locator(
-            "input[name='credentials.passcode'], input[type='password'], #password"
-        ).first
-        password_sel.fill(DEV_PASS)
+        page.fill("#okta-signin-username", DEV_USER)
+        page.fill("#okta-signin-password", DEV_PASS)
+        print("[DEV][INFO] Filled username and password.")
         shot(page, "2_form_filled.png")
 
-        # click the Verify/Sign In button on the password screen
-        print("[DEV][INFO] Submitting password...")
-        submit_btn = page.locator(
-            "input[type='submit'], button[type='submit'], [data-se='o-form-input-submit']"
-        ).first
-        submit_btn.click()
+        print("[DEV][INFO] Clicking Sign In...")
+        page.click("#okta-signin-submit")
 
         try:
             page.wait_for_url("**/developer.servicenow.com/**", timeout=60000)
