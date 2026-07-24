@@ -43,22 +43,36 @@ def take_screenshot(page, name: str):
 
 
 async def get_state_token(session: aiohttp.ClientSession) -> str:
-    print("[DEV][INFO] Hitting developer.servicenow.com to grab stateToken...")
+    import re
+    # hit the signon page directly — this always boots the Okta IDX flow
+    # and embeds the stateToken in the page HTML as a JS variable
+    login_url = (
+        f"{SIGNON_BASE}/x_snc_sso_auth.do"
+        f"?pageId=login"
+        f"&redirectUri=https%3A%2F%2Fdeveloper.servicenow.com%2Fdev.do"
+    )
+    print(f"[DEV][INFO] Hitting SSO login page to grab stateToken...")
     async with session.get(
-        f"{DEV_BASE}/dev.do",
+        login_url,
         allow_redirects=True,
         max_redirects=10,
+        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"},
     ) as resp:
+        html = await resp.text()
         final_url = str(resp.url)
 
-    if "stateHandle" not in final_url and "stateToken" not in final_url:
-        fail(f"Expected SSO redirect but got: {final_url}")
+    # stateToken appears in the HTML as: "stateToken":"<value>" or stateToken=<value> in URL
+    match = re.search(r'"stateToken"\s*:\s*"([^"]+)"', html)
+    if not match:
+        # also try the URL — sometimes it's passed as ?stateHandle= on the redirect
+        from urllib.parse import urlparse, parse_qs
+        qs = parse_qs(urlparse(final_url).query)
+        token = qs.get("stateHandle", qs.get("stateToken", [None]))[0]
+        if not token:
+            fail(f"Couldnt find stateToken in page HTML or URL. Final URL: {final_url}")
+    else:
+        token = match.group(1)
 
-    from urllib.parse import urlparse, parse_qs
-    qs = parse_qs(urlparse(final_url).query)
-    token = qs.get("stateHandle", qs.get("stateToken", [None]))[0]
-    if not token:
-        fail(f"Couldnt parse stateToken from: {final_url}")
     print("[DEV][INFO] Got stateToken.")
     return token
 
