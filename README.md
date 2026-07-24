@@ -10,11 +10,11 @@ free tier PDIs go to sleep after a few days of no activity. waking them back up 
 
 this repo runs **two completely independent keepalive methods at the same time**. if one fails for any reason, the other still keeps your PDI alive.
 
-### Method 1 — PDI direct login
+### Method 1 ———— PDI direct login
 
 opens a headless browser, navigates to your PDI URL, logs in with your credentials, lands on the dashboard. that login resets the activity timer directly on the instance itself.
 
-### Method 2 — Dev portal wakeup (recommended, more reliable)
+### Method 2 ———— Dev portal wakeup (recommended, more reliable)
 
 logs into developer.servicenow.com through the full Okta SSO flow, then calls the exact same backend APIs that fire when you click the "Wake instance" button on the dev portal. this includes `check_instance_awake`, `instanceInfo`, `instance.hibernate.wake_up`, and `touch-session`.
 
