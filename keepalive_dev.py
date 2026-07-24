@@ -102,9 +102,12 @@ def browser_login() -> list:
 
 async def touch_dev_portal(cookies: list) -> None:
     """Use aiohttp with browser cookies to call the keepalive endpoints."""
-    jar = aiohttp.CookieJar()
+    jar = aiohttp.CookieJar(unsafe=True)
     for c in cookies:
-        jar.update_cookies({c["name"]: c["value"]})
+        try:
+            jar.update_cookies({c["name"]: c["value"]})
+        except Exception:
+            pass  # skip cookies with invalid chars in name
 
     dev_headers = {
         "Accept": "application/json, text/plain, */*",
