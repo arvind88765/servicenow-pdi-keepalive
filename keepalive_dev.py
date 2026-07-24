@@ -59,31 +59,26 @@ def browser_login() -> list:
             "input[name='identifier'], #username, input[type='email'], input[autocomplete='username']"
         ).first
         username_sel.fill(DEV_USER)
-        print(f"[DEV][INFO] Filled username: {DEV_USER}")
+        print(f"[DEV][INFO] Filled username.")
 
-        # some Okta flows show username then password on next screen
-        # try clicking Next/Continue if it exists before looking for password
-        try:
-            next_btn = page.locator(
-                "input[type='submit'], button[type='submit'], [data-se='o-form-input-submit']"
-            ).first
-            if next_btn.is_visible(timeout=2000):
-                next_btn.click()
-                page.wait_for_timeout(1500)
-        except Exception:
-            pass
+        # click Next/Continue to advance to password screen
+        print("[DEV][INFO] Clicking Next...")
+        next_btn = page.locator(
+            "input[type='submit'], button[type='submit'], [data-se='o-form-input-submit']"
+        ).first
+        next_btn.click()
 
-        # wait for password field
+        # wait for password field to appear
         print("[DEV][INFO] Waiting for password field...")
         try:
             page.wait_for_selector(
                 "input[name='credentials.passcode'], input[type='password'], #password",
-                timeout=20000,
+                timeout=30000,
             )
         except Exception:
             shot(page, "fail_no_password_field.png")
             browser.close()
-            fail(f"Password field never appeared. URL: {page.url}")
+            fail(f"Password field never appeared after clicking Next. URL: {page.url}")
 
         password_sel = page.locator(
             "input[name='credentials.passcode'], input[type='password'], #password"
@@ -91,15 +86,19 @@ def browser_login() -> list:
         password_sel.fill(DEV_PASS)
         shot(page, "2_form_filled.png")
 
-        # submit
-        print("[DEV][INFO] Submitting credentials...")
+        # click the Verify/Sign In button on the password screen
+        print("[DEV][INFO] Submitting password...")
         submit_btn = page.locator(
             "input[type='submit'], button[type='submit'], [data-se='o-form-input-submit']"
         ).first
         submit_btn.click()
 
         try:
-            page.wait_for_load_state("networkidle", timeout=60000)
+            page.wait_for_url("**/developer.servicenow.com/**", timeout=60000)
+        except Exception:
+            pass
+        try:
+            page.wait_for_load_state("networkidle", timeout=30000)
         except Exception:
             pass
         page.wait_for_timeout(3000)
