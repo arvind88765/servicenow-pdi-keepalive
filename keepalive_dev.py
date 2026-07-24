@@ -37,14 +37,13 @@ def browser_login() -> list:
         page = browser.new_page()
 
         page.goto(SIGNON_URL, timeout=60000)
-        try:
-            page.wait_for_load_state("networkidle", timeout=30000)
-        except Exception:
-            pass
+        # don't wait for networkidle here — the SAML auto-submit chain
+        # takes multiple redirects before the Okta widget appears
         shot(page, "1_login_page.png")
 
-        # wait for the Okta Sign-In Widget to render (classic widget — both fields on one page)
-        print("[DEV][INFO] Waiting for login form...")
+        # wait for Okta classic widget — appears on ssosignon.servicenow.com
+        # after the full userlogin.do → login_with_sso.do → SAML POST → ssosignon chain
+        print("[DEV][INFO] Waiting for Okta login form (following SAML redirect chain)...")
         try:
             page.wait_for_selector("#okta-signin-username", timeout=WAKE_TIMEOUT_S * 1000)
         except Exception:
