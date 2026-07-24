@@ -115,6 +115,8 @@ async def touch_dev_portal(cookies: list) -> None:
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
     }
 
+    import urllib.parse
+
     async with aiohttp.ClientSession(cookie_jar=jar) as session:
         print("[DEV][INFO] Calling check_instance_awake...")
         async with session.get(
@@ -122,6 +124,22 @@ async def touch_dev_portal(cookies: list) -> None:
             headers=dev_headers,
         ) as resp:
             print(f"[DEV][INFO] check_instance_awake -> {resp.status}")
+
+        print("[DEV][INFO] Calling instanceInfo (direct_wake_up=true)...")
+        params = urllib.parse.urlencode({"sysparm_data": '{"action":"instance.ops.get_instance_info","data":{"direct_wake_up":true}}'})
+        async with session.get(
+            f"{DEV_BASE}/api/snc/v1/dev/instanceInfo?{params}",
+            headers=dev_headers,
+        ) as resp:
+            print(f"[DEV][INFO] instanceInfo -> {resp.status}")
+
+        print("[DEV][INFO] Calling wake_up...")
+        wake_params = urllib.parse.urlencode({"sysparm_data": '{"action":"instance.hibernate.wake_up","data":{"direct_wake_up":true}}'})
+        async with session.get(
+            f"{DEV_BASE}/devportal.do?{wake_params}",
+            headers=dev_headers,
+        ) as resp:
+            print(f"[DEV][INFO] wake_up -> {resp.status}")
 
         print("[DEV][INFO] Calling touch-session...")
         async with session.get(
