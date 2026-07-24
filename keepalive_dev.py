@@ -166,7 +166,10 @@ async def run():
         shutil.rmtree(PROOF_DIR)
     os.makedirs(PROOF_DIR, exist_ok=True)
 
-    cookies = browser_login()
+    # browser_login uses sync Playwright — must run in a thread to avoid
+    # "Sync API inside asyncio loop" error when called from async context
+    loop = asyncio.get_event_loop()
+    cookies = await loop.run_in_executor(None, browser_login)
     await touch_dev_portal(cookies)
     print("[DEV][SUCCESS] Dev portal keep-alive done.")
 
