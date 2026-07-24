@@ -41,39 +41,36 @@ def browser_login() -> list:
         # takes multiple redirects before the Okta widget appears
         shot(page, "1_login_page.png")
 
-        # wait for whichever login form loads — classic Okta widget (#okta-signin-username)
-        # or IDX-based form (input[name="identifier"]) — depends on routing
-        print("[DEV][INFO] Waiting for Okta login form...")
-        USERNAME_SEL = "#okta-signin-username, input[name='identifier'], input[autocomplete='username']"
-        PASSWORD_SEL = "#okta-signin-password, input[name='credentials.passcode'], input[type='password']"
-        SUBMIT_SEL = "#okta-signin-submit, input[value='Sign In'], button[data-se='o-form-input-submit'], input[type='submit']"
+        # wait for IDX login form — takes ~2s to render after SAML redirect chain
+        print("[DEV][INFO] Waiting for login form...")
         try:
-            page.wait_for_selector(USERNAME_SEL, timeout=WAKE_TIMEOUT_S * 1000)
+            page.wait_for_selector("#username", timeout=WAKE_TIMEOUT_S * 1000)
         except Exception:
             shot(page, "fail_no_login_form.png")
             browser.close()
             fail(f"Login form never appeared. URL: {page.url}")
 
         shot(page, "1_login_page.png")
-        page.locator(USERNAME_SEL).first.fill(DEV_USER)
 
-        # IDX shows username first then password on next step; classic widget shows both at once
-        # try filling password immediately — if it's not visible yet, click Next first
+        # step 1: fill username, click Next
+        page.fill("#username", DEV_USER)
+        print("[DEV][INFO] Filled username, clicking Next...")
+        page.click("#identify-submit")
+
+        # step 2: wait for password field, fill, click Sign In
         try:
-            page.wait_for_selector(PASSWORD_SEL, timeout=3000)
-            page.locator(PASSWORD_SEL).first.fill(DEV_PASS)
+            page.wait_for_selector("#password", timeout=30000)
         except Exception:
-            # password not visible yet — click Next/Submit to advance to password step
-            print("[DEV][INFO] Password not visible, clicking Next...")
-            page.locator(SUBMIT_SEL).first.click()
-            page.wait_for_selector(PASSWORD_SEL, timeout=30000)
-            page.locator(PASSWORD_SEL).first.fill(DEV_PASS)
+            shot(page, "fail_no_password.png")
+            browser.close()
+            fail(f"Password field never appeared. URL: {page.url}")
 
-        print(f"[DEV][INFO] Filled credentials.")
+        page.fill("#password", DEV_PASS)
+        print("[DEV][INFO] Filled password.")
         shot(page, "2_form_filled.png")
 
         print("[DEV][INFO] Clicking Sign In...")
-        page.locator(SUBMIT_SEL).first.click()
+        page.click("#challenge-authenticator-submit")
 
         try:
             page.wait_for_url("**/developer.servicenow.com/**", timeout=60000)
